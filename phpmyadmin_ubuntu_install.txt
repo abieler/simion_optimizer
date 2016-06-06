@@ -1,0 +1,12 @@
+on the newest ubuntu to get phpmyadmin running
+do the following in the terminal:
+
+sudo ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
+sudo a2enconf phpmyadmin.conf
+sudo service apache2 reload
+
+
+once working to install the optimizer database go from the phpmyadmin
+interface to "Databases" and create a database with name "simion_optimizer_db".
+Then select this database and change to the "Import" menu. From there
+import the file "simion_optimizer_db.sql" file from the "input" folder.
