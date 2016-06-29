@@ -40,9 +40,9 @@ def delete_old_files(new_gem):
     os.system('del *.tmp')
     os.system('del optimizer_*_data.txt')
     
-def fastadjust_voltages(paname,electrodes,voltages,simion_dir):
+def fastadjust_voltages(paname,electrodes,voltages, SIMION_PATH, SIMION_BIN):
     if paname != 'None':
-        s = "simion-8.0.6-TEST5-20100415.exe --nogui fastadj " + simion_dir + paname + '" '
+        s = SIMION_BIN + " --nogui fastadj " + SIMION_PATH + paname + '" '
         for electrode_number, electrode_voltage in zip(electrodes, voltages):
             s = s + str(electrode_number) + "=" + str(electrode_voltage) + ","
         s = s[:-1]
@@ -62,10 +62,10 @@ def fastadjust_all_fixed_voltages(PA_filenames,fix_electrodes,fix_voltages,simio
             pass
 
 
-def fastadjust_adj_voltages_and_fly_ions_2(x,iob_filename,i):
+def fastadjust_adj_voltages_and_fly_ions(x, iob_filename, i):
 
     s = "'fly --recording-output=optimizer_%i_data.txt --restore-potentials=0 --retain-trajectories=0" %i
-    s = s + ' '+str(iob_filename) + "'"
+    s = s + ' ' + str(iob_filename) + "'"
     fid = open('start_simion_session_%i.lua' %i, 'w')
     fid.write("file = io.open('finished_" + str(i) + ".txt', 'w') \n")
     fid.write("file:write('0')\n")
@@ -114,6 +114,29 @@ def get_sql_settings():
         print ""
         print "Exiting now..."
         sys.exit()
+        
+def get_simion_settings():
+    PATH = None
+    SIMION_BIN = None
+
+    with fid = open("slave.config", "r"):
+        for line in fid:
+            key,value = line.strip().split(":")
+            if key == "SIMION_PATH":
+                PATH = value
+            elif key == "SIMION_BIN":
+                SIMION_VER = value
+
+    if not all([PATH, SIMION_VER]):
+        print "Error: Did not find all necessary information in slave.config."
+        print ""
+        print "Provide the following keywords in slave.config:"
+        print "SIMION_PATH"
+        print "SIMION_BIN"
+        print "Exiting now..."
+        sys.exit()
+
+    return PATH, SIMION_BIN
 
 def mysql_connect():
     host, user, pw, db = get_sql_settings()
@@ -125,11 +148,11 @@ def mysql_connect():
         time.sleep(2)
         sys.exit()
         
-def write_zielf(id_r,zielf): #zielf ist eine list mit den zielfunktionen in der richtigen reihenfolge
+def write_zielf(myID, zielf): #zielf ist eine list mit den zielfunktionen in der richtigen reihenfolge
     
     for i in range(25):
         try:
-            id_r_str = str(id_r) 
+            id_r_str = str(myID) 
             datenbank = mysql_connect()
             cursor = datenbank.cursor (cursors.DictCursor)
             
@@ -140,16 +163,16 @@ def write_zielf(id_r,zielf): #zielf ist eine list mit den zielfunktionen in der 
             i=0
             for key in result_set:
                 job_id_tmp = key['job_id']
-                cursor.execute ("UPDATE jobs SET zielfunktion = '"+str(zielf[i])+"', status = '2' WHERE status = '1' AND job_id = '"+str(job_id_tmp)+"' AND id_R = '"+id_r_str+"' LIMIT 1")
+                cursor.execute ("UPDATE jobs SET zielfunktion = '" + str(zielf[i]) + "', status = '2' WHERE status = '1' AND job_id = '" + str(job_id_tmp) + "' AND id_R = '" + id_r_str + "' LIMIT 1")
                 i+=1
             datenbank.commit ()
             datenbank.close ()
             return True
         except:
-            time.sleep(2)
+            time.sleep(1)
     
 
-def algo_param(id_r,number_of_cores):
+def algo_param(myID, nCores):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     db = mysql_connect()
     
@@ -158,9 +181,9 @@ def algo_param(id_r,number_of_cores):
         try:
             cursor = db.cursor(cursors.DictCursor)
             print 'getting jobs'
-            cursor.execute("UPDATE jobs SET status = '1', id_R = %s WHERE status = '0' LIMIT %i" %(str(id_r),number_of_cores) )
+            cursor.execute("UPDATE jobs SET status = '1', id_R = %s WHERE status = '0' LIMIT %i" % (str(myID), nCores) )
             print 'getting job id'
-            cursor.execute("SELECT job_id from jobs WHERE status = '1' AND id_R = %s" % (str(id_r)) )
+            cursor.execute("SELECT job_id from jobs WHERE status = '1' AND id_R = %s" % (str(myID)) )
             db_data = cursor.fetchall()
 
             X = []
@@ -171,13 +194,12 @@ def algo_param(id_r,number_of_cores):
                 x = []
                 for volt in voltages:
                     x.append(float(volt["voltage"]))
-                    
-                print 'job_id  = %i' %job_id
+
+                print 'job_id  = %i' % job_id
                 print 'voltages= ' + str(x)
-                
+
                 X.append(x)
-                
-                
+
             cursor.execute("SELECT volt_it_id from jobs WHERE job_id = %s" % (str(job_id)))
             db_data = cursor.fetchall()
             

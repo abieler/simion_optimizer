@@ -10,6 +10,8 @@ os.system('del geometry_particle_history.log')
 os.system('del tf_control_file.txt')
 os.system('del tf_control.txt')
 
+SIMION_PATH, SIMION_BIN = get_simion_settings()
+
 loop_counter = 0
 while True:
     ##############################################################################
@@ -27,13 +29,13 @@ while True:
         if gemfile_exists:
             print 'found gemfile: %s' % gemfile_name
             pa_name = gemfile_name.split('.')[0] + '.pa#'
-            os.system('simion gem2pa %s %s'%(gemfile_name, pa_name))
+            os.system(SIMION_BIN + ' gem2pa %s %s' % (gemfile_name, pa_name))
             print 'converted gemfile to pa...'
-            print 'simion gem2pa %s %s'%(gemfile_name, pa_name)
+            print SIMION_BIN + ' gem2pa %s %s' % (gemfile_name, pa_name)
             
         for filename in refiner_list:
-            print 'simion --nogui --noprompt refine ' + simion_dir + filename[:-1] + '#"'
-            #os.system('simion --nogui --noprompt refine ' + simion_dir + filename[:-1] + '#"')
+            print SIMION_BIN + ' --nogui --noprompt refine ' + SIMION_PATH + filename[:-1] + '#"'
+            os.system(SIMION_BIN + ' --nogui --noprompt refine ' + SIMION_PATH + filename[:-1] + '#"')
         loop_counter += 1
     ##############################################################################
     #                        FASTADJUST AN FLY IONS                              #
@@ -41,10 +43,9 @@ while True:
     
 
     print 'FAST ADJUSTING ADJUSTABLE VOLTAGES AND FLY EM'
-    #fastadjust_adj_voltages_and_fly_ions_2(X,iob_filename)
     for i in range(len(X)):
-        fastadjust_adj_voltages_and_fly_ions_2(X[i],iob_filename,i)
-        os.system('START /B simion --default-num-particles=60001 --nogui --noprompt lua start_simion_session_' + str(i) + '.lua >>nul')
+        fastadjust_adj_voltages_and_fly_ions(X[i], iob_filename,i)
+        os.system('START /B ' + SIMION_BIN + ' --default-num-particles=60001 --nogui --noprompt lua start_simion_session_' + str(i) + '.lua >>nul')
     time.sleep(0.2)
     
     print 'waiting for simulations to end...'
@@ -71,5 +72,5 @@ while True:
     print len(target_function)
     
     
-    write_zielf(id_r,target_function)
+    write_zielf(id_r, target_function)
             
