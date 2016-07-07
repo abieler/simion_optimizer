@@ -58,7 +58,7 @@ def get_settings():
 # set some global variables
 # these variables are also visible in slave_main.py namespace
 myID, nCores, FTP_IP, FTP_USER, FTP_PW = get_settings()
-IS_DEBUG = True
+IS_DEBUG = False 
 
 if not IS_DEBUG:
     print " - connecting to FTP server"
