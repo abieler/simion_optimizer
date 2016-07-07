@@ -6,6 +6,12 @@ from MySQLdb import *
 from scipy import *
 from ftplib import FTP
 
+def silent_remove(fileName):
+    try:
+        os.remove(fileName)
+    except:
+        pass
+        
 
 def get_simion_files(FTP_IP, FTP_USER, FTP_PW):
     refiner_list = []
@@ -26,7 +32,7 @@ def get_simion_files(FTP_IP, FTP_USER, FTP_PW):
             gemfile_name = file
         elif file[-1] == 'b':
             iob_filename = file
-        
+
     print 'refiner_list = ' + str(refiner_list)
     return refiner_list, gemfile_exists, gemfile_name, iob_filename
 
@@ -36,10 +42,10 @@ def delete_old_files(new_gem):
     if int(new_gem) == 1:
         for ending in ending_list:
             os.system('del *' + ending)
-        
+
     os.system('del *.tmp')
     os.system('del optimizer_*_data.txt')
-    
+
 def fastadjust_voltages(paname,electrodes,voltages, SIMION_PATH, SIMION_BIN):
     if paname != 'None':
         s = SIMION_BIN + " --nogui fastadj " + SIMION_PATH + paname + '" '
@@ -50,7 +56,7 @@ def fastadjust_voltages(paname,electrodes,voltages, SIMION_PATH, SIMION_BIN):
     else:
         s = ''
         return s
-    
+
 def fastadjust_all_fixed_voltages(PA_filenames,fix_electrodes,fix_voltages,simion_dir):
     for k in range(3):
         try:
@@ -78,24 +84,27 @@ def fastadjust_adj_voltages_and_fly_ions(x, iob_filename, i):
     fid.write("file:write('1')\n")
     fid.write("file:close()")
     fid.close()
-        
+
 def get_sql_settings():
     IP = None
     USER = None
     PW = None
     DB = None
 
-    with fid = open("slave.config", "r"):
+    with open("slave.config", "r") as fid:
         for line in fid:
-            key,value = line.strip().split(":")
-            if key == "SQL_IP":
-                IP = value
-            elif key == "SQL_USER":
-                USER = value
-            elif key == "SQL_PW":
-                PW = value
-            elif key == "SQL_DB":
-                DB = value
+            try:
+                key,value = line.strip().split("::")
+                if key == "SQL_IP":
+                    IP = value
+                elif key == "SQL_USER":
+                    USER = value
+                elif key == "SQL_PW":
+                    PW = value
+                elif key == "SQL_DB":
+                    DB = value
+            except:
+                pass
     if not all([IP, USER, PW, DB]):
         print "Error: Did not find all necessary information in slave.config."
         print ""
@@ -109,34 +118,40 @@ def get_sql_settings():
         print "SQL_IP:130.92.145.79"
         print "SQL_USER:userName"
         print "."
-        print "."        
+        print "."
         print "etc."
         print ""
         print "Exiting now..."
         sys.exit()
-        
+
 def get_simion_settings():
     PATH = None
-    SIMION_BIN = None
+    SIMION_VER = None
 
-    with fid = open("slave.config", "r"):
+    with open("slave.config", "r") as fid:
         for line in fid:
-            key,value = line.strip().split(":")
-            if key == "SIMION_PATH":
-                PATH = value
-            elif key == "SIMION_BIN":
-                SIMION_VER = value
+            try:
+                key,value = line.strip().split("::")
+                if key == "SIMION_PATH":
+                    PATH = value
+                elif key == "SIMION_VER":
+                    SIMION_VER = value
+            except:
+                pass
 
-    if not all([PATH, SIMION_VER]):
+    if PATH == None and SIMION_VER == None:
         print "Error: Did not find all necessary information in slave.config."
         print ""
         print "Provide the following keywords in slave.config:"
         print "SIMION_PATH"
         print "SIMION_BIN"
+        print
+        print "Found following settings in slave.config file:"
+        print "SIMION_PATH: ", PATH
+        print "SIMION_BIN : ", SIMION_VER
         print "Exiting now..."
         sys.exit()
-
-    return PATH, SIMION_BIN
+    return PATH, SIMION_VER
 
 def mysql_connect():
     host, user, pw, db = get_sql_settings()
@@ -147,15 +162,15 @@ def mysql_connect():
         print "Error %d: %s" % (e.args[0], e.args[1])
         time.sleep(2)
         sys.exit()
-        
+
 def write_zielf(myID, zielf): #zielf ist eine list mit den zielfunktionen in der richtigen reihenfolge
-    
+
     for i in range(25):
         try:
-            id_r_str = str(myID) 
+            id_r_str = str(myID)
             datenbank = mysql_connect()
             cursor = datenbank.cursor (cursors.DictCursor)
-            
+
             cursor.execute ("SELECT job_id FROM jobs WHERE id_R = '"+id_r_str+"' AND status = '1' ORDER BY part_volt_id")
             result_set = cursor.fetchall()
             print len(zielf)
@@ -170,14 +185,14 @@ def write_zielf(myID, zielf): #zielf ist eine list mit den zielfunktionen in der
             return True
         except:
             time.sleep(1)
-    
+
 
 def algo_param(myID, nCores):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     db = mysql_connect()
-    
+
     while True:
-    
+
         try:
             cursor = db.cursor(cursors.DictCursor)
             print 'getting jobs'
@@ -202,9 +217,9 @@ def algo_param(myID, nCores):
 
             cursor.execute("SELECT volt_it_id from jobs WHERE job_id = %s" % (str(job_id)))
             db_data = cursor.fetchall()
-            
+
             volt_iteration = int(db_data[0]["volt_it_id"])
-            
+
             return X, volt_iteration
         except:
             print 'did not find any free jobs'
